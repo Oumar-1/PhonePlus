@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">Simpel telefon</string>
     <string name="app_launcher_name">Telefon</string>
-    <string name="default_phone_app_prompt">Vänligen gör den här appen till standard telefonappen</string>
-    <string name="allow_displaying_over_other_apps">Snälla låt visa över andra appar för at få ett tillitligt beteende</string>
+    <string name="default_phone_app_prompt">Vänligen gör den här appen till standardtelefonapp</string>
+    <string name="allow_displaying_over_other_apps">Tillåt visning över andra appar för att få ett tillförlitligt beteende</string>
     <!-- Contacts -->
     <string name="could_not_access_contacts">Det gick inte att komma åt dina kontakter</string>
     <!-- Recents -->
@@ -14,12 +14,12 @@
     <string name="clear_history_confirmation">Är du säker på att du vill ta bort allt från samtalshistoriken\?</string>
     <string name="show_grouped_calls">Visa grupperade samtal</string>
     <string name="clear_call_history">Rensa samtalshistorik</string>
-    <string name="show_call_details">Visa samtals detaljer</string>
+    <string name="show_call_details">Visa samtalsinformation</string>
     <!-- Dialpad -->
     <string name="dialpad">Knappsats</string>
-    <string name="asterisk">Asterisk</string>
-    <string name="hashtag">Hashtag</string>
-    <string name="call_number">Ring number</string>
+    <string name="asterisk">Stjärna</string>
+    <string name="hashtag">Fyrkant</string>
+    <string name="call_number">Ring nummer</string>
     <!-- Dialer -->
     <string name="dialer">Telefon</string>
     <string name="accept">Svara</string>
@@ -32,10 +32,10 @@
     <string name="call_ended">Samtalet har avslutats</string>
     <string name="call_ending">Samtalet avslutas</string>
     <string name="ongoing_call">Pågående samtal</string>
-    <string name="select_sim">Välj ett SIM för detta samtalet</string>
+    <string name="select_sim">Välj ett SIM för detta samtal</string>
     <string name="always_use_this_sim">Använd alltid det här SIM-kortet för detta nummer</string>
     <string name="unset_default_sim">Ta bort standard-SIM-kort</string>
-    <string name="calls">Calls</string>
+    <string name="calls">Samtal</string>
     <string name="turn_microphone_on">Sätt på mikrofonen</string>
     <string name="turn_microphone_off">Stäng av mikrofonen</string>
     <string name="turn_speaker_on">Sätt på högtalaren</string>
@@ -43,15 +43,15 @@
     <string name="show_dialpad">Visa knappsats</string>
     <string name="hide_dialpad">Göm knappsats</string>
     <string name="end_call">Avsluta samtalet</string>
-    <string name="hold_call">Hold call</string>
-    <string name="resume_call">Resume call</string>
-    <string name="call_on_hold">On Hold</string>
-    <string name="call_swap">Swap calls</string>
-    <string name="call_merge">Merge calls</string>
-    <string name="call_split">Split call</string>
-    <string name="call_add">Add call</string>
-    <string name="conference_manage">Manage conference call</string>
-    <string name="conference">Conference</string>
+    <string name="hold_call">Parkera samtal</string>
+    <string name="resume_call">Återuppta samtal</string>
+    <string name="call_on_hold">Parkerat</string>
+    <string name="call_swap">Växla mellan samtal</string>
+    <string name="call_merge">Koppla ihop samtal</string>
+    <string name="call_split">Koppla isär samtal</string>
+    <string name="call_add">Lägg till samtal</string>
+    <string name="conference_manage">Hantera konferenssamtal</string>
+    <string name="conference">Konferens</string>
     <!-- Speed dial -->
     <string name="speed_dial">Snabbuppringning</string>
     <string name="manage_speed_dial">Hantera snabbuppringning</string>
@@ -60,7 +60,7 @@
     <string name="group_subsequent_calls">Gruppera samtal till och från samma nummer i samtalshistoriken</string>
     <string name="open_dialpad_by_default">Öppna knappsatsen som standard när appen öppnas</string>
     <string name="disable_proximity_sensor">Inaktivera närhetssensor under samtal</string>
-    <string name="disable_swipe_to_answer">Ersätt swiping som respons till inkommande samtal jmed klickande</string>
+    <string name="disable_swipe_to_answer">Ersätt svepning vid besvarande av inkommande samtal med tryckning</string>
     <!-- Strings displayed only on Google Playstore. Optional, but good to have -->
     <!-- App title has to have less than 50 characters. If you cannot squeeze it, just remove a part of it -->
     <string name="app_title">Simpel telefon - hantera dina telefonsamtal enkelt</string>
