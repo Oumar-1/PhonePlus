@@ -74,7 +74,7 @@ class FavoritesFragment(context: Context, attributeSet: AttributeSet) : MyViewPa
     }
 
     private fun gotContacts(contacts: ArrayList<Contact>) {
-        setupLetterFastscroller(contacts)
+        setupLetterFastScroller(contacts)
         if (contacts.isEmpty()) {
             fragment_placeholder.beVisible()
             fragment_list.beGone()
@@ -111,7 +111,7 @@ class FavoritesFragment(context: Context, attributeSet: AttributeSet) : MyViewPa
                         if (adapter is ContactsAdapter) {
                             val items = adapter.contacts
                             saveCustomOrderToPrefs(items)
-                            setupLetterFastscroller(items)
+                            setupLetterFastScroller(items)
                         }
                     }
                 }
@@ -139,7 +139,7 @@ class FavoritesFragment(context: Context, attributeSet: AttributeSet) : MyViewPa
         return ArrayList(sorted)
     }
 
-    private fun saveCustomOrderToPrefs(items: ArrayList<Contact>) {
+    private fun saveCustomOrderToPrefs(items: List<Contact>) {
         activity?.apply {
             val orderIds = items.map { it.contactId }
             val orderGsonString = Gson().toJson(orderIds)
@@ -147,7 +147,7 @@ class FavoritesFragment(context: Context, attributeSet: AttributeSet) : MyViewPa
         }
     }
 
-    private fun setupLetterFastscroller(contacts: ArrayList<Contact>) {
+    private fun setupLetterFastScroller(contacts: List<Contact>) {
         letter_fastscroller.setupWithRecyclerView(fragment_list, { position ->
             try {
                 val name = contacts[position].getNameToDisplay()
@@ -162,7 +162,7 @@ class FavoritesFragment(context: Context, attributeSet: AttributeSet) : MyViewPa
     override fun onSearchClosed() {
         fragment_placeholder.beVisibleIf(allContacts.isEmpty())
         (fragment_list.adapter as? ContactsAdapter)?.updateItems(allContacts)
-        setupLetterFastscroller(allContacts)
+        setupLetterFastScroller(allContacts)
     }
 
     override fun onSearchQueryChanged(text: String) {
@@ -174,6 +174,6 @@ class FavoritesFragment(context: Context, attributeSet: AttributeSet) : MyViewPa
 
         fragment_placeholder.beVisibleIf(contacts.isEmpty())
         (fragment_list.adapter as? ContactsAdapter)?.updateItems(contacts, text)
-        setupLetterFastscroller(contacts)
+        setupLetterFastScroller(contacts)
     }
 }
