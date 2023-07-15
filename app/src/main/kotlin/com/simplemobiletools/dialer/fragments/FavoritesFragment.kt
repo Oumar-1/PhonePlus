@@ -46,12 +46,14 @@ class FavoritesFragment(context: Context, attributeSet: AttributeSet) : MyViewPa
     }
 
     override fun refreshItems(callback: (() -> Unit)?) {
-        val privateCursor = context?.getMyContactsCursor(true, true)
         ContactsHelper(context).getContacts(showOnlyContactsWithNumbers = true) { contacts ->
             allContacts = contacts
 
             if (SMT_PRIVATE !in context.baseConfig.ignoredContactSources) {
-                val privateContacts = MyContactsContentProvider.getContacts(context, privateCursor)
+                val privateCursor = context?.getMyContactsCursor(true, true)
+                val privateContacts = MyContactsContentProvider.getContacts(context, privateCursor).map {
+                    it.copy(starred = 1)
+                }
                 if (privateContacts.isNotEmpty()) {
                     allContacts.addAll(privateContacts)
                     allContacts.sort()
@@ -89,7 +91,6 @@ class FavoritesFragment(context: Context, attributeSet: AttributeSet) : MyViewPa
         val viewType = context.config.viewType
         setViewType(viewType)
 
-
         val currAdapter = fragment_list.adapter as ContactsAdapter?
         if (currAdapter == null) {
             ContactsAdapter(
@@ -125,7 +126,7 @@ class FavoritesFragment(context: Context, attributeSet: AttributeSet) : MyViewPa
                 }
 
                 onSpanCountListener = { newSpanCount ->
-                    context.config.gridLayoutSpanCount = newSpanCount
+                    context.config.contactsGridColumnCnt = newSpanCount
                 }
             }
 
@@ -194,7 +195,7 @@ class FavoritesFragment(context: Context, attributeSet: AttributeSet) : MyViewPa
     }
 
     private fun setViewType(viewType: Int) {
-        val spanCount = context.config.gridLayoutSpanCount
+        val spanCount = context.config.contactsGridColumnCnt
 
         val layoutManager = if (viewType == VIEW_TYPE_GRID) {
             letter_fastscroller.beGone()
