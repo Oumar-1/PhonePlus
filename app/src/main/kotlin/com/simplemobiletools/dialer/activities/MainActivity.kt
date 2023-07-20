@@ -231,7 +231,7 @@ class MainActivity : SimpleActivity() {
             val newColumnCount = it as Int
             if (currentColumnCount != newColumnCount) {
                 config.contactsGridColumnCount = newColumnCount
-                favorites_fragment.updateListAdapter()
+                favorites_fragment?.columnCountChanged()
             }
         }
     }
@@ -239,7 +239,7 @@ class MainActivity : SimpleActivity() {
     private fun changeViewType() {
         ChangeViewTypeDialog(this) {
             refreshMenuItems()
-            favorites_fragment.updateListAdapter()
+            favorites_fragment?.refreshItems()
         }
     }
 
