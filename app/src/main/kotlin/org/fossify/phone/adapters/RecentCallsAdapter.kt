@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.DiffUtil
 import com.bumptech.glide.Glide
 import com.google.i18n.phonenumbers.NumberParseException
 import com.google.i18n.phonenumbers.PhoneNumberUtil
+import com.google.i18n.phonenumbers.Phonenumber
 import com.google.i18n.phonenumbers.geocoding.PhoneNumberOfflineGeocoder
 import org.fossify.commons.adapters.MyRecyclerViewListAdapter
 import org.fossify.commons.dialogs.ConfirmationDialog
@@ -487,25 +488,36 @@ class RecentCallsAdapter(
                 }
 
                 itemRecentsLocation.apply {
-                    try {
-                        val phoneNumber = PhoneNumberUtil.getInstance().parse(call.phoneNumber, Locale.getDefault().country)
-                        //This function in com.googlecode.libphonenumber:geocoder has not yet implemented concatenating the country name as of version 3.1
-                        val location =
-                            PhoneNumberOfflineGeocoder.getInstance().getDescriptionForNumber(phoneNumber, Locale.getDefault(), Locale.getDefault().country)
+                    ensureBackgroundThread {
+                        try {
+                            val phoneNumber = PhoneNumberUtil.getInstance().parse(call.phoneNumber, Locale.getDefault().country)
+                            //This function in com.googlecode.libphonenumber:geocoder has not yet implemented concatenating the country name as of version 3.1
+                            val location =
+                                PhoneNumberOfflineGeocoder.getInstance().getDescriptionForNumber(phoneNumber, Locale.getDefault(), Locale.getDefault().country)
 
-                        text = location
-                        setTextColor(textColor)
-                        setTextSize(TypedValue.COMPLEX_UNIT_PX, currentFontSize * 0.8f)
-                        beVisible()
-                    } catch (_: NumberParseException) {
-                        beInvisible()
+                            if (
+                                phoneNumber.countryCodeSource != Phonenumber.PhoneNumber.CountryCodeSource.FROM_DEFAULT_COUNTRY &&
+                                !(location == Locale.getDefault().displayCountry && matchingContact != null)
+                            ) {
+                                activity.runOnUiThread {
+                                    text = location
+                                    setTextColor(textColor)
+                                    setTextSize(TypedValue.COMPLEX_UNIT_PX, currentFontSize * 0.8f)
+                                    beVisible()
+                                }
+                            }
+                        } catch (_: NumberParseException) {
+                            activity.runOnUiThread {
+                                beInvisible()
+                            }
+                        }
                     }
                 }
 
                 itemRecentsDuration.apply {
                     text = call.duration.getFormattedDuration()
                     setTextColor(textColor)
-                    if(call.type != Calls.MISSED_TYPE && call.type != Calls.REJECTED_TYPE && call.duration > 0) {
+                    if (call.type != Calls.MISSED_TYPE && call.type != Calls.REJECTED_TYPE && call.duration > 0) {
                         beVisible()
                     } else {
                         beInvisible()
