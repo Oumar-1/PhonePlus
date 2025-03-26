@@ -491,7 +491,7 @@ class RecentCallsAdapter(
                 }
 
                 itemRecentsDateTimeDurationSeparator.apply {
-                    text = " • "
+                    text = "•"
                     setTextSize(TypedValue.COMPLEX_UNIT_PX, currentFontSize * 0.8f)
                     setTextColor(textColor)
                     if (shouldShowDuration) {
