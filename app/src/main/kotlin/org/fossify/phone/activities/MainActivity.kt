@@ -493,6 +493,7 @@ class MainActivity : SimpleActivity() {
     }
 
     fun refreshFragments() {
+        cacheContacts()
         getContactsFragment()?.refreshItems()
         getFavoritesFragment()?.refreshItems()
         getRecentsFragment()?.refreshItems()
