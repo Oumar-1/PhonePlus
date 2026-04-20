@@ -2,6 +2,7 @@ package org.fossify.phone.fragments
 
 import android.content.Context
 import android.util.AttributeSet
+import androidx.core.content.ContentProviderCompat.requireContext
 import org.fossify.commons.extensions.baseConfig
 import org.fossify.commons.extensions.beGone
 import org.fossify.commons.extensions.beGoneIf
@@ -20,6 +21,8 @@ import org.fossify.phone.R
 import org.fossify.phone.activities.MainActivity
 import org.fossify.phone.activities.SimpleActivity
 import org.fossify.phone.adapters.RecentCallsAdapter
+import org.fossify.phone.data.CallerRecordRepository
+import org.fossify.phone.data.DatabaseProvider
 import org.fossify.phone.databinding.FragmentRecentsBinding
 import org.fossify.phone.extensions.config
 import org.fossify.phone.extensions.runAfterAnimations
@@ -41,6 +44,10 @@ class RecentsFragment(
 
     private var searchQuery: String? = null
     private var recentsHelper = RecentsHelper(context)
+
+    // --- PHASE 5: CAMERA STATE & LAUNCHER ---
+
+    // ----------------------------------------
 
     override fun onFinishInflate() {
         super.onFinishInflate()
@@ -175,7 +182,11 @@ class RecentsFragment(
                         } else {
                             activity?.startAddContactIntent(recentCall.phoneNumber)
                         }
-                    }
+                    },
+                    // PHASE 5: THE CONNECTION TO THE ADAPTER
+                        onCameraClick = { call ->
+                            (activity as? MainActivity)?.launchDeliveryCamera(call)
+                        }
                 )
 
                 binding.recentsList.adapter = recentsAdapter
@@ -231,10 +242,47 @@ class RecentsFragment(
                     privateContacts = privateContacts
                 )
 
+                val callsWithNotes = loadNotesForCalls(updatedCalls)
+
                 callback(
-                    groupCallsByDate(updatedCalls)
+                    groupCallsByDate(callsWithNotes)
                 )
             }
+        }
+    }
+
+    private fun loadNotesForCalls(calls: List<RecentCall>): List<RecentCall> {
+        if (calls.isEmpty()) return calls
+
+        val dbProvider = DatabaseProvider.get(context)
+        val recordDao = dbProvider.callerRecordDao()
+
+        val normalizedNumbers = calls.map {
+            context.config.normalizeCustomSIMNumber(it.phoneNumber)
+        }.distinct()
+
+        // 1. Fetch Notes
+        val repository = CallerRecordRepository(recordDao)
+        val notesMap = repository.getRecordsByNumbersSync(normalizedNumbers)
+            .filter { it.note.isNotEmpty() }
+            .associateBy { it.phoneNumber }
+
+        // 2. Fetch Latest Photos
+        // Because of 'ORDER BY createdAt DESC', the first one in the group is always the newest!
+        val latestPhotosMap = kotlinx.coroutines.runBlocking {
+            recordDao.getPhotosForNumbersSync(normalizedNumbers)
+        }.groupBy { it.phoneNumber }.mapValues { it.value.first() }
+
+        // 3. Attach them to the Call objects
+        return calls.map { call ->
+            val normalizedNumber = context.config.normalizeCustomSIMNumber(call.phoneNumber)
+            val note = notesMap[normalizedNumber]?.note
+            val latestPhotoPath = latestPhotosMap[normalizedNumber]?.imagePath
+
+            call.copy(
+                note = note ?: call.note, // Keep existing note if no new one
+                deliveryPhotoPath = latestPhotoPath
+            )
         }
     }
 
@@ -302,4 +350,7 @@ class RecentsFragment(
     private fun findContactByCall(recentCall: RecentCall): Contact? {
         return (activity as MainActivity).cachedContacts.find { it.name == recentCall.name && it.doesHavePhoneNumber(recentCall.phoneNumber) }
     }
+
+    // --- PHASE 5: CAMERA TRIGGER & DATABASE SAVING ---
+
 }

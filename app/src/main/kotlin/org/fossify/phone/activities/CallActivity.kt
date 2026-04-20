@@ -7,12 +7,15 @@ import android.content.Intent
 import android.graphics.drawable.LayerDrawable
 import android.graphics.drawable.RippleDrawable
 import android.media.AudioManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.provider.Settings
 import android.telecom.Call
 import android.telecom.CallAudioState
+import android.util.Log
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -20,23 +23,37 @@ import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.ImageView
+import android.widget.Toast
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.content.res.ResourcesCompat
+import androidx.core.net.toUri
 import androidx.core.os.postDelayed
 import androidx.core.view.children
 import androidx.core.view.setPadding
 import androidx.core.view.updatePadding
+import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.RequestOptions
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.fossify.commons.extensions.*
 import org.fossify.commons.helpers.*
 import org.fossify.commons.models.SimpleListItem
+import org.fossify.commons.views.MyEditText
 import org.fossify.phone.R
+import org.fossify.phone.data.CallerRecordRepository
+import org.fossify.phone.data.DatabaseProvider
+import org.fossify.phone.data.MyRecordEntity
 import org.fossify.phone.databinding.ActivityCallBinding
+import org.fossify.phone.dialogs.DeliveryGalleryDialog
 import org.fossify.phone.dialogs.DynamicBottomSheetChooserDialog
 import org.fossify.phone.extensions.*
 import org.fossify.phone.helpers.*
 import org.fossify.phone.models.AudioRoute
 import org.fossify.phone.models.CallContact
+import org.fossify.phone.services.AfterCallPopupService
+import org.fossify.phone.services.FloatingButtonService
 import kotlin.math.max
 import kotlin.math.min
 
@@ -48,8 +65,15 @@ class CallActivity : SimpleActivity() {
             return openAppIntent
         }
     }
+    private val repository by lazy {
+        val dao = DatabaseProvider.get(application).callerRecordDao()
+        CallerRecordRepository(dao)
+    }
 
     private val binding by viewBinding(ActivityCallBinding::inflate)
+    // --- Camera VARIABLES ---
+    private var isCameraActive = false
+    private var pendingPhotoUri: android.net.Uri? = null
 
     private var isSpeakerOn = false
     private var isMicrophoneOff = false
@@ -86,6 +110,8 @@ class CallActivity : SimpleActivity() {
         addLockScreenFlags()
         CallManager.addListener(callCallback)
         updateCallContactInfo(CallManager.getPrimaryCall())
+
+
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -96,16 +122,36 @@ class CallActivity : SimpleActivity() {
     override fun onResume() {
         super.onResume()
         updateState()
+        stopFloatingButtonService()
+        stopAfterCallPopup()
     }
+
 
     override fun onDestroy() {
         super.onDestroy()
         CallManager.removeListener(callCallback)
         disableProximitySensor()
 
+
+
+
+    }
+
+    override fun onPause() {
         if (screenOnWakeLock?.isHeld == true) {
             screenOnWakeLock!!.release()
         }
+        super.onPause()
+    }
+    override fun onStop() {
+        super.onStop()
+        val vxs = this@CallActivity
+        Handler(Looper.getMainLooper()).postDelayed({
+            startFloatingButtonService(vxs)
+        }, 150)
+
+        saveNote()
+
     }
 
     override fun onBackPressedCompat(): Boolean {
@@ -123,6 +169,19 @@ class CallActivity : SimpleActivity() {
 
         // Allow minimizing active call - user can return via notification
         return false
+    }
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean("isCameraActive", isCameraActive)
+        pendingPhotoUri?.let { outState.putString("pendingPhotoUri", it.toString()) }
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        super.onRestoreInstanceState(savedInstanceState)
+        isCameraActive = savedInstanceState.getBoolean("isCameraActive", false)
+        savedInstanceState.getString("pendingPhotoUri")?.let {
+            pendingPhotoUri = android.net.Uri.parse(it)
+        }
     }
 
     private fun initButtons() = binding.apply {
@@ -143,6 +202,47 @@ class CallActivity : SimpleActivity() {
             handleSwipe()
         }
 
+        callGalleryButton.setOnClickListener {
+            callContact?.let { contact ->
+                DeliveryGalleryDialog(
+                    activity = this@CallActivity,
+                    phoneNumber = contact.number,
+                    onGalleryEmpty = {
+                        binding.callBackgroundImage.setImageDrawable(null)
+                        binding.callBackgroundScrim.beGone()
+                        binding.callGalleryButton.beGone()
+                    },
+                    onNewestPhotoDeleted = { nextImagePath ->
+                        Glide.with(this@CallActivity)
+                            .load(nextImagePath)
+                            .into(binding.callBackgroundImage)
+                    }
+                ).show()
+            }
+        }
+        binding.callCameraButton.setOnClickListener {
+            if (callContact == null) return@setOnClickListener
+
+            try {
+                isCameraActive = true
+                val tempFile = java.io.File(filesDir, "captured_images/temp_${System.currentTimeMillis()}.jpg")
+                tempFile.parentFile?.mkdirs()
+
+                pendingPhotoUri = androidx.core.content.FileProvider.getUriForFile(
+                    this@CallActivity,
+                    "$packageName.fileprovider",
+                    tempFile
+                )
+
+                // FIX: Safely unwrap the nullable Uri
+                pendingPhotoUri?.let { uri ->
+                    takeDeliveryPhotoLauncher.launch(uri)
+                }
+            } catch (e: Exception) {
+                isCameraActive = false
+                toast("Could not open camera")
+            }
+        }
         callToggleMicrophone.setOnClickListener {
             toggleMicrophone()
         }
@@ -184,6 +284,13 @@ class CallActivity : SimpleActivity() {
 
         callEnd.setOnClickListener {
             endCall()
+        }
+        openWhatsapp.setOnClickListener {
+            val contact = callContact
+            if (contact != null) {
+                config.openChat(this@CallActivity, contact.number)
+            }
+
         }
 
         dialpadInclude.apply {
@@ -332,6 +439,22 @@ class CallActivity : SimpleActivity() {
         callDraggable.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    // --- NEW: Calculate the exact boundaries the moment the finger touches the screen ---
+                    minDragX = if (isRtl) {
+                        callAccept.left.toFloat()
+                    } else {
+                        callDecline.left.toFloat()
+                    }
+
+                    maxDragX = if (isRtl) {
+                        callDecline.left.toFloat()
+                    } else {
+                        callAccept.left.toFloat()
+                    }
+
+                    initialDraggableX = callDraggable.left.toFloat()
+                    // -----------------------------------------------------------------------------------
+
                     dragDownX = event.x
                     callDraggableBackground.animate().alpha(0f)
                     stopAnimation = true
@@ -345,7 +468,7 @@ class CallActivity : SimpleActivity() {
                     callDraggable.animate().x(initialDraggableX).withEndAction {
                         callDraggableBackground.animate().alpha(0.2f)
                     }
-                    callDraggable.setImageDrawable(getDrawable(R.drawable.ic_phone_down_vector))
+                    callDraggable.setImageDrawable(AppCompatResources.getDrawable(applicationContext,R.drawable.ic_phone_down_vector))
                     callDraggable.drawable.mutate().setTint(getProperTextColor())
                     callLeftArrow.animate().alpha(1f)
                     callRightArrow.animate().alpha(1f)
@@ -388,7 +511,7 @@ class CallActivity : SimpleActivity() {
                             } else {
                                 R.drawable.ic_phone_green_vector
                             }
-                            callDraggable.setImageDrawable(getDrawable(drawableRes))
+                            callDraggable.setImageDrawable(AppCompatResources.getDrawable(applicationContext,drawableRes))
                         }
 
                         callDraggable.x <= initialDraggableX -> {
@@ -398,7 +521,7 @@ class CallActivity : SimpleActivity() {
                             } else {
                                 R.drawable.ic_phone_down_red_vector
                             }
-                            callDraggable.setImageDrawable(getDrawable(drawableRes))
+                            callDraggable.setImageDrawable(AppCompatResources.getDrawable(applicationContext,drawableRes))
                         }
                     }
                 }
@@ -523,7 +646,7 @@ class CallActivity : SimpleActivity() {
     private fun showDialpad() {
         binding.dialpadWrapper.apply {
             updatePadding(
-                bottom = binding.root.bottom - binding.callEnd.top + resources.getDimensionPixelSize(R.dimen.activity_margin)
+                bottom = binding.root.bottom - binding.endWraper.top + resources.getDimensionPixelSize(R.dimen.activity_margin)
             )
 
             translationY = dialpadHeight
@@ -575,6 +698,9 @@ class CallActivity : SimpleActivity() {
         if (callContact == null) {
             return
         }
+        if(config.openWhatsapp){
+            handleChatRedirection()
+        }
 
         binding.apply {
             val (name, _, number, numberLabel) = callContact!!
@@ -588,6 +714,35 @@ class CallActivity : SimpleActivity() {
             } else {
                 callerNumber.beGone()
             }
+            lifecycleScope.launch(Dispatchers.IO) {
+                val number = config.normalizeCustomSIMNumber(callContact!!.number)
+                val record = repository.getRecord(number)
+
+                // Fetch the delivery photos for this caller
+                val dao = DatabaseProvider.get(applicationContext).callerRecordDao()
+                val photos = dao.getPhotosForNumber(number)
+
+                withContext(Dispatchers.Main) {
+                    if(record != null) {
+                        callerNotes.setText(record.note)
+                    }
+
+                    // Set the Background and Gallery Button
+                    if (photos.isNotEmpty()) {
+                        Glide.with(this@CallActivity)
+                            .load(photos.first().imagePath) // The newest photo is always first!
+                            .into(callBackgroundImage)
+
+                        callBackgroundScrim.beVisible()
+                        callGalleryButton.beVisible()
+                    } else {
+                        callBackgroundImage.setImageDrawable(null)
+                        callBackgroundScrim.beGone()
+                        callGalleryButton.beGone()
+                    }
+                }
+            }
+
 
             callerAvatar.apply {
                 if (avatarUri.isNullOrEmpty()) {
@@ -607,6 +762,19 @@ class CallActivity : SimpleActivity() {
                 }
             }
         }
+
+        callContact?.let { contact ->
+            if(config.copyNumberOnCall){
+                lifecycleScope.launch (Dispatchers.IO){
+                    config.copyPhoneNumberToClipboard(this@CallActivity,contact.number)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@CallActivity,"Number Copied to Clipboard",Toast.LENGTH_SHORT).show()
+
+                    }
+                }
+            }
+
+        }
     }
 
     private fun getContactNameOrNumber(contact: CallContact): String {
@@ -620,6 +788,7 @@ class CallActivity : SimpleActivity() {
     @SuppressLint("MissingPermission")
     private fun checkCalledSIMCard() {
         try {
+
             val simLabels = getAvailableSIMCardLabels()
             if (simLabels.size > 1) {
                 simLabels.forEachIndexed { index, sim ->
@@ -688,8 +857,16 @@ class CallActivity : SimpleActivity() {
             setActionButtonEnabled(binding.callToggleHold, isSingleCallActionsEnabled)
             setActionButtonEnabled(binding.callAdd, isSingleCallActionsEnabled)
         } else if (phoneState is TwoCalls) {
-            updateCallState(phoneState.active)
-            updateCallOnHoldState(phoneState.onHold)
+            val activeState = phoneState.active.getStateCompat()
+
+            // If the "active" call is actually ringing, show incoming call UI
+            if (activeState == Call.STATE_RINGING) {
+                callRinging()
+                updateCallOnHoldState(phoneState.onHold)
+            } else {
+                updateCallState(phoneState.active)
+                updateCallOnHoldState(phoneState.onHold)
+            }
         }
 
         updateCallAudioState(CallManager.getCallAudioRoute())
@@ -717,6 +894,7 @@ class CallActivity : SimpleActivity() {
                 return@getCallContact
             }
             callContact = contact
+
             val avatar = if (!call.isConference()) contact.photoUri else null
             runOnUiThread {
                 updateOtherPersonsInfo(avatar)
@@ -726,6 +904,22 @@ class CallActivity : SimpleActivity() {
     }
 
     private fun acceptCall() {
+        val phoneState = CallManager.getPhoneState()
+
+        if (phoneState is org.fossify.phone.helpers.TwoCalls) {
+            // Find the specific call that is currently ringing
+            val ringingCall = listOfNotNull(phoneState.active, phoneState.onHold).firstOrNull {
+                it.getStateCompat() == android.telecom.Call.STATE_RINGING
+            }
+
+            if (ringingCall != null) {
+                // Command Android Telecom to answer THIS specific call directly
+                ringingCall.answer(android.telecom.VideoProfile.STATE_AUDIO_ONLY)
+                return
+            }
+        }
+
+        // Fallback for a normal single call
         CallManager.accept()
     }
 
@@ -738,6 +932,8 @@ class CallActivity : SimpleActivity() {
 
     private fun callRinging() {
         binding.incomingCallHolder.beVisible()
+        binding.ongoingCallHolder.beGone()  // ADD THIS LINE
+        binding.callEnd.beGone()             // ADD THIS LINE
     }
 
     private fun callStarted() {
@@ -758,10 +954,31 @@ class CallActivity : SimpleActivity() {
     }
 
     private fun endCall() {
+        if (callContact == null) return
+
+        val phoneState = CallManager.getPhoneState()
+        if (phoneState is org.fossify.phone.helpers.TwoCalls) {
+            // Find the ringing call and ONLY reject that one
+            val ringingCall = listOfNotNull(phoneState.active, phoneState.onHold).firstOrNull {
+                it.getStateCompat() == android.telecom.Call.STATE_RINGING
+            }
+
+            if (ringingCall != null) {
+                ringingCall.reject(android.telecom.Call.REJECT_REASON_DECLINED)
+
+                // CRITICAL: Return immediately! Do NOT run the code below
+                // that sets isCallEnded = true and closes the Activity,
+                // because Call A is still active!
+                return
+            }
+        }
+
+        // --- Original Single Call Logic Below ---
         CallManager.reject()
         disableProximitySensor()
         audioRouteChooserDialog?.dismissAllowingStateLoss()
 
+        startAfterCallPopup()
         if (isCallEnded) {
             safeFinishAndRemoveTask()
             return
@@ -773,22 +990,28 @@ class CallActivity : SimpleActivity() {
         }
 
         isCallEnded = true
+
         runOnUiThread {
             if (callDuration > 0) {
                 disableAllActionButtons()
                 @SuppressLint("SetTextI18n")
                 binding.callStatusLabel.text = "${callDuration.getFormattedDuration()} (${getString(R.string.call_ended)})"
-                Handler(mainLooper).postDelayed(3000) {
-                    safeFinishAndRemoveTask()
+
+                if (!isCameraActive) {
+                    Handler(mainLooper).postDelayed(3000) {
+                        safeFinishAndRemoveTask()
+                    }
                 }
             } else {
                 disableAllActionButtons()
                 binding.callStatusLabel.text = getString(R.string.call_ended)
-                finish()
+
+                if (!isCameraActive) {
+                    finish()
+                }
             }
         }
     }
-
     private fun safeFinishAndRemoveTask() {
         try {
             if (intent != null) {
@@ -813,6 +1036,7 @@ class CallActivity : SimpleActivity() {
         override fun onPrimaryCallChanged(call: Call) {
             callDurationHandler.removeCallbacks(updateCallDurationTask)
             updateCallContactInfo(call)
+
             updateState()
         }
     }
@@ -907,4 +1131,145 @@ class CallActivity : SimpleActivity() {
         binding.dialpadInput.setText("");
         return true;
     }
+
+
+    private fun checkOverlayPermission(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            // If permission is not granted, request it
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+               "package:$packageName".toUri()
+
+            )
+
+            return false
+        }
+        return true
+    }
+
+    private fun startFloatingButtonService(context : Context) {
+        if(CallManager.getPhoneState() == NoCall || !checkOverlayPermission() || config.openWhatsapp) return
+
+            val intent = Intent(context, FloatingButtonService::class.java)
+            startService(intent)
+    }
+
+    private fun stopFloatingButtonService() {
+        stopService(Intent(this, FloatingButtonService::class.java))
+    }
+    fun startAfterCallPopup() {
+
+        if(callContact == null) return
+        if (config.showAfterCallPopup && !config.openWhatsapp) {
+            val intent = Intent(applicationContext, AfterCallPopupService::class.java)
+            intent.addFlags( Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            intent.addFlags( Intent.FLAG_ACTIVITY_NEW_TASK)
+            intent.putExtra("phoneNumber", callContact?.number ?: "")
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                applicationContext.startForegroundService(intent)
+            } else {
+                applicationContext.startService(intent)
+            }
+        }
+    }
+    fun stopAfterCallPopup() {
+        val intent = Intent(applicationContext, AfterCallPopupService::class.java)
+        applicationContext.stopService(intent)
+    }
+
+    private  fun handleChatRedirection() {
+        val phoneNumber = callContact?.number
+        if(CallManager.isOutgoingCall() && !this.isFinishing && !this.isDestroyed && !phoneNumber.isNullOrBlank() ) {
+            window.decorView.post{
+                Handler(Looper.getMainLooper()).postDelayed({
+                    if(config.isDynamic) {
+                        DynamicMessageTemplateActivity.start(this,phoneNumber, config.whatsappMessage)
+                    } else{
+                        config.openChat(this,phoneNumber, config.whatsappMessage)
+                    }
+                    CallManager.reject()
+                },250)
+            }
+
+        }
+    }
+    private fun saveNote() {
+        val contact = callContact ?: return
+        val callerNoteView = findViewById<MyEditText>(R.id.caller_notes)
+        val noteText = callerNoteView.text.toString()
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            // Now we just pass the raw strings to the reusable repository function
+            repository.saveNote(
+                context = applicationContext,
+                rawPhoneNumber = contact.number,
+                note = noteText
+            )
+        }
+    }
+    // --- PHASE 9: CALL SCREEN GALLERY ---
+
+    private class TakeRearPicture : androidx.activity.result.contract.ActivityResultContract<android.net.Uri, Boolean>() {
+        override fun createIntent(context: Context, input: android.net.Uri): Intent {
+            return Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                putExtra(android.provider.MediaStore.EXTRA_OUTPUT, input)
+                putExtra("android.intent.extras.CAMERA_FACING", 0)
+                putExtra("android.intent.extras.LENS_FACING_FRONT", 0)
+                putExtra("android.intent.extra.USE_FRONT_CAMERA", false)
+            }
+        }
+        override fun parseResult(resultCode: Int, intent: Intent?): Boolean {
+            return resultCode == android.app.Activity.RESULT_OK
+        }
+    }
+
+    private val takeDeliveryPhotoLauncher = registerForActivityResult(TakeRearPicture()) { success ->
+        isCameraActive = false // Release the camera lock!
+
+        if (success && pendingPhotoUri != null && callContact != null) {
+
+            lifecycleScope.launch {
+                // Hand the heavy lifting off to the Helper!
+                val savedImagePath = DeliveryPhotoHelper.processAndSavePhoto(
+                    context = this@CallActivity,
+                    rawUri = pendingPhotoUri!!,
+                    rawPhoneNumber = callContact!!.number
+                )
+
+                if (savedImagePath != null) {
+                    toast("Delivery Photo Saved!")
+                    pendingPhotoUri = null
+
+                    // Update the Call Background instantly
+                    binding.callBackgroundScrim.beVisible()
+                    binding.callGalleryButton.beVisible()
+                    com.bumptech.glide.Glide.with(this@CallActivity)
+                        .load(savedImagePath)
+                        .into(binding.callBackgroundImage)
+                } else {
+                    toast("Failed to save photo")
+                    pendingPhotoUri = null
+                }
+
+                checkIfShouldFinish() // Close screen if they hung up
+            }
+
+        } else {
+            pendingPhotoUri?.let { contentResolver.delete(it, null, null) }
+            pendingPhotoUri = null
+            checkIfShouldFinish()
+        }
+    }
+
+
+    private fun checkIfShouldFinish() {
+        if (isCallEnded) {
+            // Give the DA 1.5 seconds to see their photo pop up on the background, then end the screen
+            Handler(Looper.getMainLooper()).postDelayed({
+                safeFinishAndRemoveTask()
+            }, 1500)
+        }
+    }
 }
+

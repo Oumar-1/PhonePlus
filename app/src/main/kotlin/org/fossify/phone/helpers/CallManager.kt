@@ -1,18 +1,20 @@
 package org.fossify.phone.helpers
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Handler
 import android.telecom.Call
 import android.telecom.CallAudioState
 import android.telecom.InCallService
 import android.telecom.VideoProfile
+import android.util.Log
+import org.fossify.commons.models.contacts.Contact
 import org.fossify.phone.extensions.getStateCompat
 import org.fossify.phone.extensions.hasCapability
 import org.fossify.phone.extensions.isConference
 import org.fossify.phone.models.AudioRoute
 import java.util.concurrent.CopyOnWriteArraySet
 
-// inspired by https://github.com/Chooloo/call_manage
 class CallManager {
     companion object {
         @SuppressLint("StaticFieldLeak")
@@ -20,6 +22,11 @@ class CallManager {
         private var call: Call? = null
         private val calls = mutableListOf<Call>()
         private val listeners = CopyOnWriteArraySet<CallManagerListener>()
+
+        fun isOutgoingCall(): Boolean {
+            val state = getState()
+            return state == Call.STATE_DIALING || state == Call.STATE_CONNECTING
+        }
 
         fun onCallAdded(call: Call) {
             this.call = call
@@ -54,26 +61,30 @@ class CallManager {
             }
         }
 
+
         fun getPhoneState(): PhoneState {
             return when (calls.size) {
                 0 -> NoCall
                 1 -> SingleCall(calls.first())
                 2 -> {
                     val active = calls.find { it.getStateCompat() == Call.STATE_ACTIVE }
+                    val ringing = calls.find { it.getStateCompat() == Call.STATE_RINGING }
                     val newCall = calls.find { it.getStateCompat() == Call.STATE_CONNECTING || it.getStateCompat() == Call.STATE_DIALING }
                     val onHold = calls.find { it.getStateCompat() == Call.STATE_HOLDING }
-                    if (active != null && newCall != null) {
-                        TwoCalls(newCall, active)
-                    } else if (newCall != null && onHold != null) {
-                        TwoCalls(newCall, onHold)
-                    } else if (active != null && onHold != null) {
-                        TwoCalls(active, onHold)
-                    } else {
-                        TwoCalls(calls[0], calls[1])
+
+                    // Priority order: ringing call should be primary so user can answer/reject it
+                    when {
+                        ringing != null && active != null -> TwoCalls(ringing, active)
+                        ringing != null && onHold != null -> TwoCalls(ringing, onHold)
+                        active != null && newCall != null -> TwoCalls(newCall, active)
+                        newCall != null && onHold != null -> TwoCalls(newCall, onHold)
+                        active != null && onHold != null -> TwoCalls(active, onHold)
+                        else -> TwoCalls(calls[0], calls[1])
                     }
                 }
 
                 else -> {
+                    val ringing = calls.find { it.getStateCompat() == Call.STATE_RINGING }
                     val conference = calls.find { it.isConference() } ?: return NoCall
                     val secondCall = if (conference.children.size + 1 != calls.size) {
                         calls.filter { !it.isConference() }
@@ -82,11 +93,17 @@ class CallManager {
                     } else {
                         null
                     }
+
+                    // If there's a ringing call, prioritize it
+                    if (ringing != null) {
+                        return TwoCalls(ringing, conference)
+                    }
+
                     if (secondCall == null) {
                         SingleCall(conference)
                     } else {
                         val newCallState = secondCall.getStateCompat()
-                        if (newCallState == Call.STATE_ACTIVE || newCallState == Call.STATE_CONNECTING || newCallState == Call.STATE_DIALING) {
+                        if (newCallState == Call.STATE_ACTIVE || newCallState == Call.STATE_CONNECTING || newCallState == Call.STATE_DIALING || newCallState == Call.STATE_RINGING) {
                             TwoCalls(secondCall, conference)
                         } else {
                             TwoCalls(conference, secondCall)
@@ -150,7 +167,9 @@ class CallManager {
         }
 
         fun accept() {
-            call?.answer(VideoProfile.STATE_AUDIO_ONLY)
+            // Accept any ringing call first, otherwise accept the primary call
+            val ringingCall = calls.find { it.getStateCompat() == Call.STATE_RINGING }
+            ringingCall?.answer(VideoProfile.STATE_AUDIO_ONLY) ?: call?.answer(VideoProfile.STATE_AUDIO_ONLY)
         }
 
         fun reject() {
@@ -176,7 +195,9 @@ class CallManager {
 
         fun swap() {
             if (calls.size > 1) {
-                calls.find { it.getStateCompat() == Call.STATE_HOLDING }?.unhold()
+                calls.find {
+                    it.getStateCompat() == Call.STATE_HOLDING
+                }?.unhold()
             }
         }
 

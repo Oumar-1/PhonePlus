@@ -4,4 +4,10 @@
     <color name="color_missed_call">@color/md_red_500_dark</color>
     <color name="color_outgoing_call">@color/md_green_600</color>
     <color name="color_incoming_call">@color/md_blue_600</color>
+    <color name="color_primary">#152837</color>
+    <color name="color_primary_dark">#0B161E</color>
+    <color name="color_secondary">#235061</color>
+    <color name="color_accent">#1ca6a4</color>
+    <color name="color_accent_500">#1A9A69</color>
+    <!-- Add to your theme -->
 </resources>

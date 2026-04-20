@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.detekt)
+    kotlin("kapt")
 }
 
 val keystorePropertiesFile: File = rootProject.file("keystore.properties")
@@ -142,5 +143,13 @@ dependencies {
     implementation(libs.eventbus)
     implementation(libs.libphonenumber)
     implementation(libs.geocoder)
+    implementation(libs.constraintlayout)
     detektPlugins(libs.compose.detekt)
+    // user defined dependencies
+    // Room + coroutines via catalog
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    implementation(libs.kotlinx.coroutines.android)
+    kapt(libs.room.compiler)
+    // user defined dependencies end
 }

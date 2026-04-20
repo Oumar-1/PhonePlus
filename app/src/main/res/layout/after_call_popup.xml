@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/after_call_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="12dp"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/color_primary"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingBottom="16dp"
+        android:paddingTop="0dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layoutDirection="ltr"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_weight="1"
+                android:text="@string/after_call_options"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/close_btn"
+                android:layout_width="40dp"
+                android:contentDescription="@string/close_popup"
+                android:layout_height="60dp"
+                android:layout_marginStart="15dp"
+                android:scaleType="fitCenter"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_close"
+                app:tint="@color/md_red_700" />
+        </LinearLayout>
+
+        <!-- Phone Number Display -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginTop="4dp"
+            android:layoutDirection="ltr"
+            android:layout_marginBottom="8dp">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_person_outline_vector"
+                app:tint="@color/color_accent"
+                android:layout_marginEnd="8dp" />
+
+            <TextView
+                android:id="@+id/phone_number_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/color_accent"
+                android:text="+1234567890" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="16dp"
+            android:background="#20000000" />
+
+        <!-- Buttons Container - Perfectly Aligned -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layoutDirection="ltr"
+            android:gravity="center"
+            android:weightSum="3">
+
+
+            <!-- Call Button -->
+            <LinearLayout
+                android:id="@+id/recall_btn_wraper"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageButton
+                    android:id="@+id/recall_btn"
+                    android:layout_width="@dimen/after_call_popup_btn_size"
+                    android:layout_height="@dimen/after_call_popup_btn_size"
+                    android:background="@drawable/transparent_button"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_call_accept" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/call"
+                    android:textSize="@dimen/after_call_popup_btn_text_size" />
+            </LinearLayout>
+
+            <!-- SMS Button -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageButton
+                    android:id="@+id/send_sms_message"
+                    android:layout_width="@dimen/after_call_popup_btn_size"
+                    android:layout_height="@dimen/after_call_popup_btn_size"
+                    android:background="@drawable/transparent_button"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_sms_message" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/sms"
+                    android:textSize="@dimen/after_call_popup_btn_text_size" />
+            </LinearLayout>
+
+            <!-- WhatsApp Button -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageButton
+                    android:id="@+id/open_whatsapp_btn"
+                    android:layout_width="@dimen/after_call_popup_btn_size"
+                    android:layout_height="@dimen/after_call_popup_btn_size"
+                    android:background="@drawable/transparent_button"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_whatsapp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/whatsapp"
+                    android:textSize="@dimen/after_call_popup_btn_text_size" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

@@ -12,6 +12,8 @@ import android.view.Menu
 import android.view.View
 import android.view.ViewGroup
 import android.widget.PopupMenu
+import android.widget.Toast
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.SimpleItemAnimator
 import com.bumptech.glide.Glide
@@ -19,14 +21,16 @@ import com.google.i18n.phonenumbers.NumberParseException
 import com.google.i18n.phonenumbers.PhoneNumberUtil
 import com.google.i18n.phonenumbers.Phonenumber
 import com.google.i18n.phonenumbers.geocoding.PhoneNumberOfflineGeocoder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.fossify.commons.adapters.MyRecyclerViewListAdapter
 import org.fossify.commons.dialogs.ConfirmationDialog
-import org.fossify.commons.dialogs.FeatureLockedDialog
 import org.fossify.commons.extensions.addBlockedNumber
-import org.fossify.commons.extensions.addLockedLabelIfNeeded
 import org.fossify.commons.extensions.adjustAlpha
 import org.fossify.commons.extensions.adjustForContrast
 import org.fossify.commons.extensions.applyColorFilter
+import org.fossify.commons.extensions.beGone
+import org.fossify.commons.extensions.beVisible
 import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.commons.extensions.copyToClipboard
 import org.fossify.commons.extensions.formatDateOrTime
@@ -39,7 +43,6 @@ import org.fossify.commons.extensions.getPopupMenuTheme
 import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.commons.extensions.getTextSize
 import org.fossify.commons.extensions.highlightTextPart
-import org.fossify.commons.extensions.isOrWasThankYouInstalled
 import org.fossify.commons.extensions.launchSendSMSIntent
 import org.fossify.commons.extensions.setupViewBackground
 import org.fossify.commons.helpers.PERMISSION_WRITE_CALL_LOG
@@ -51,9 +54,13 @@ import org.fossify.commons.views.MyRecyclerView
 import org.fossify.phone.R
 import org.fossify.phone.activities.MainActivity
 import org.fossify.phone.activities.SimpleActivity
+import org.fossify.phone.data.CallerRecordRepository
+import org.fossify.phone.data.DatabaseProvider
 import org.fossify.phone.databinding.ItemRecentCallBinding
 import org.fossify.phone.databinding.ItemRecentsDateBinding
+import org.fossify.phone.dialogs.DeliveryGalleryDialog
 import org.fossify.phone.dialogs.ShowGroupedCallsDialog
+import org.fossify.phone.dialogs.ShowOrEditNotesDialog
 import org.fossify.phone.extensions.areMultipleSIMsAvailable
 import org.fossify.phone.extensions.callContactWithSimWithConfirmationCheck
 import org.fossify.phone.extensions.config
@@ -75,7 +82,8 @@ class RecentCallsAdapter(
     private val showOverflowMenu: Boolean,
     private val itemDelete: (List<RecentCall>) -> Unit = {},
     itemClick: (Any) -> Unit,
-    val profileIconClick: ((Any) -> Unit)? = null
+    val profileIconClick: ((Any) -> Unit)? = null,
+    val onCameraClick: ((RecentCall) -> Unit)? = null
 ) : MyRecyclerViewListAdapter<CallLogItem>(activity, recyclerView, RecentCallsDiffCallback(), itemClick) {
 
     private lateinit var outgoingCallIcon: Drawable
@@ -90,6 +98,7 @@ class RecentCallsAdapter(
     private var phoneNumberUtilInstance: PhoneNumberUtil = PhoneNumberUtil.getInstance()
     private var phoneNumberOfflineGeocoderInstance: PhoneNumberOfflineGeocoder = PhoneNumberOfflineGeocoder.getInstance()
     private val cachedSimColors = HashMap<Pair<Int,Int>, Int>()
+
 
     init {
         initDrawables()
@@ -111,7 +120,7 @@ class RecentCallsAdapter(
             findItem(R.id.cab_call_sim_2).isVisible = hasMultipleSIMs && isOneItemSelected
             findItem(R.id.cab_remove_default_sim).isVisible = isOneItemSelected && (activity.config.getCustomSIM(selectedNumber) ?: "") != ""
 
-            findItem(R.id.cab_block_number).title = activity.addLockedLabelIfNeeded(R.string.block_number)
+            findItem(R.id.cab_block_number).title =activity.getString( R.string.block_number)
             findItem(R.id.cab_block_number).isVisible = isNougatPlus()
             findItem(R.id.cab_add_number).isVisible = isOneItemSelected
             findItem(R.id.cab_copy_number).isVisible = isOneItemSelected
@@ -237,11 +246,7 @@ class RecentCallsAdapter(
     }
 
     private fun tryBlocking() {
-        if (activity.isOrWasThankYouInstalled()) {
-            askConfirmBlock()
-        } else {
-            FeatureLockedDialog(activity) { }
-        }
+        askConfirmBlock()
     }
 
     private fun askConfirmBlock() {
@@ -288,6 +293,38 @@ class RecentCallsAdapter(
         val recentCall = getSelectedItems().firstOrNull() ?: return
         val recentCalls = recentCall.groupedCalls ?: listOf(recentCall)
         ShowGroupedCallsDialog(activity, recentCalls)
+    }
+    private fun showNotesForCall(call: RecentCall) {
+        ShowOrEditNotesDialog(
+            activity = activity,
+            phoneNumber = call.phoneNumber,
+            contactName = call.name,
+            note = call.note,
+            onSave = { updatedNote ->
+
+                // 1. Save the new note to the Database (Background Thread)
+                activity.lifecycleScope.launch(Dispatchers.IO) {
+                    val dao = DatabaseProvider.get(activity.applicationContext).callerRecordDao()
+                    val repository = CallerRecordRepository(dao)
+
+                    repository.saveNote(
+                        context = activity.applicationContext,
+                        rawPhoneNumber = call.phoneNumber,
+                        note = updatedNote
+                    )
+                }
+
+                // 2. Update the RecyclerView UI immediately (Main Thread)
+                val updatedList = currentList.map {
+                    if (it is RecentCall && it.id == call.id) {
+                        it.copy(note = updatedNote)
+                    } else {
+                        it
+                    }
+                }
+                submitList(updatedList)
+            }
+        )
     }
 
     private fun copyNumber() {
@@ -378,7 +415,7 @@ class RecentCallsAdapter(
                 findItem(R.id.cab_add_number).isVisible = !call.isUnknownNumber
                 findItem(R.id.cab_copy_number).isVisible = !call.isUnknownNumber
                 findItem(R.id.cab_show_call_details).isVisible = !call.isUnknownNumber
-                findItem(R.id.cab_block_number).title = activity.addLockedLabelIfNeeded(R.string.block_number)
+                findItem(R.id.cab_block_number).title = activity.getString(R.string.block_number)
                 findItem(R.id.cab_block_number).isVisible = isNougatPlus() && !call.isUnknownNumber
                 findItem(R.id.cab_remove_default_sim).isVisible = (activity.config.getCustomSIM(selectedNumber) ?: "") != "" && !call.isUnknownNumber
             }
@@ -444,6 +481,7 @@ class RecentCallsAdapter(
                         }
                     }
 
+                    R.id.cab_notes -> showNotesForCall(call)
                     R.id.cab_remove_default_sim -> {
                         executeItemMenuOperation(callId) {
                             removeDefaultSIM()
@@ -597,6 +635,16 @@ class RecentCallsAdapter(
                     }
                 }
 
+                itemRecentsNote.apply {
+                    val note = call.note
+                    if (!note.isNullOrEmpty()) {
+                        text = note
+                        beVisible()
+                    } else {
+                        beGone()
+                    }
+                }
+
                 val drawable = when (call.type) {
                     Calls.OUTGOING_TYPE -> outgoingCallIcon
                     Calls.MISSED_TYPE -> incomingMissedCallIcon
@@ -613,6 +661,42 @@ class RecentCallsAdapter(
 
                 overflowMenuIcon.setOnClickListener {
                     showPopupMenu(overflowMenuAnchor, call)
+                }
+                // Setup the new Camera Button
+                itemRecentsCamera.apply {
+                    // Only show it if it's a real number (not an unknown caller)
+                    beVisibleIf(showOverflowMenu && !call.isUnknownNumber)
+
+                    // Match the color to your theme
+                    drawable.mutate().setTint(activity.getProperTextColor())
+
+                    // Pass the clicked call back to the Fragment/Activity
+                    setOnClickListener {
+                        onCameraClick?.invoke(call)
+                    }
+                }
+                // Setup the Thumbnail Viewer
+                itemRecentsDeliveryThumbnail.apply {
+                    if (!call.deliveryPhotoPath.isNullOrEmpty()) {
+                        beVisible()
+
+                        // Load the image smoothly and make it a circle
+                        Glide.with(activity)
+                            .load(call.deliveryPhotoPath)
+                            .apply(com.bumptech.glide.request.RequestOptions.circleCropTransform())
+                            .into(this)
+
+                        // When clicked, open the image in full screen natively!
+                        // When clicked, open the Historical Gallery Dialog!
+                        setOnClickListener {
+                            DeliveryGalleryDialog(
+                                activity = activity,
+                                phoneNumber = call.phoneNumber,
+                            ).show()
+                        }
+                    } else {
+                        beGone()
+                    }
                 }
             }
         }
@@ -668,7 +752,9 @@ class RecentCallsDiffCallback : DiffUtil.ItemCallback<CallLogItem>() {
                         oldItem.specificNumber == newItem.specificNumber &&
                         oldItem.specificType == newItem.specificType &&
                         oldItem.isUnknownNumber == newItem.isUnknownNumber &&
-                        oldItem.groupedCalls?.size == newItem.groupedCalls?.size
+                        oldItem.groupedCalls?.size == newItem.groupedCalls?.size &&
+                        oldItem.note == newItem.note &&
+                    oldItem.deliveryPhotoPath == newItem.deliveryPhotoPath
             }
 
             else -> false

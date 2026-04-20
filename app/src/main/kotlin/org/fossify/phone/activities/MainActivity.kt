@@ -1,5 +1,6 @@
 package org.fossify.phone.activities
 
+import kotlinx.coroutines.launch
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
@@ -14,8 +15,10 @@ import android.provider.Settings
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.lifecycle.lifecycleScope
 import androidx.viewpager.widget.ViewPager
 import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.withContext
 import me.grantland.widget.AutofitHelper
 import org.fossify.commons.dialogs.ChangeViewTypeDialog
 import org.fossify.commons.dialogs.ConfirmationDialog
@@ -40,6 +43,7 @@ import org.fossify.phone.fragments.ContactsFragment
 import org.fossify.phone.fragments.FavoritesFragment
 import org.fossify.phone.fragments.MyViewPagerFragment
 import org.fossify.phone.fragments.RecentsFragment
+import org.fossify.phone.helpers.DeliveryPhotoHelper
 import org.fossify.phone.helpers.OPEN_DIAL_PAD_AT_LAUNCH
 import org.fossify.phone.helpers.RecentsHelper
 import org.fossify.phone.helpers.tabsList
@@ -91,7 +95,7 @@ class MainActivity : SimpleActivity() {
 
             handleFullScreenNotificationsPermission { granted ->
                 if (!granted) {
-                    toast(org.fossify.commons.R.string.notifications_disabled)
+                    toast(R.string.notifications_disabled)
                 }
             }
         } else {
@@ -202,7 +206,6 @@ class MainActivity : SimpleActivity() {
             findItem(R.id.create_new_contact).isVisible = currentFragment == getContactsFragment()
             findItem(R.id.change_view_type).isVisible = currentFragment == getFavoritesFragment()
             findItem(R.id.column_count).isVisible = currentFragment == getFavoritesFragment() && config.viewType == VIEW_TYPE_GRID
-            findItem(R.id.more_apps_from_us).isVisible = !resources.getBoolean(R.bool.hide_google_relations)
         }
     }
 
@@ -228,11 +231,9 @@ class MainActivity : SimpleActivity() {
                     R.id.create_new_contact -> launchCreateNewContactIntent()
                     R.id.sort -> showSortingDialog(showCustomSorting = getCurrentFragment() is FavoritesFragment)
                     R.id.filter -> showFilterDialog()
-                    R.id.more_apps_from_us -> launchMoreAppsFromUsIntent()
                     R.id.settings -> launchSettings()
                     R.id.change_view_type -> changeViewType()
                     R.id.column_count -> changeColumnCount()
-                    R.id.about -> launchAbout()
                     else -> return@setOnMenuItemClickListener false
                 }
                 return@setOnMenuItemClickListener true
@@ -638,4 +639,61 @@ class MainActivity : SimpleActivity() {
     fun refreshCallLog(event: Events.RefreshCallLog) {
         getRecentsFragment()?.refreshItems()
     }
+    // --- PHASE 5: DELIVERY CAMERA LOGIC ---
+
+    private var pendingPhotoUri: android.net.Uri? = null
+    private var pendingPhoneNumber: String? = null
+
+    // 1. The Camera Launcher
+    private val takeDeliveryPhotoLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.TakePicture()) { success ->
+        if (success) {
+            lifecycleScope.launch {
+                val uriToCompress = pendingPhotoUri
+                val phoneToSave = pendingPhoneNumber
+
+                if (uriToCompress != null && phoneToSave != null) {
+                    DeliveryPhotoHelper.processAndSavePhoto(this@MainActivity, uriToCompress, phoneToSave,)
+                }
+
+            }
+        } else {
+            pendingPhotoUri?.let { uri ->
+                contentResolver.delete(uri, null, null)
+            }
+        }
+        pendingPhotoUri = null
+        pendingPhoneNumber = null
+    }
+
+    fun launchDeliveryCamera(call: org.fossify.phone.models.RecentCall) {
+        if (!isAutoTimeEnabled()) {
+            toast("Security Error: Please enable Automatic Date & Time in your settings to take a delivery photo.")
+            return
+        }
+
+        val tempFile = java.io.File(filesDir, "captured_images/temp_${System.currentTimeMillis()}.jpg")
+        tempFile.parentFile?.mkdirs()
+
+        val secureUri = androidx.core.content.FileProvider.getUriForFile(
+            this,
+            "$packageName.fileprovider",
+            tempFile
+        )
+
+        pendingPhotoUri = secureUri
+        pendingPhoneNumber = call.phoneNumber
+
+        takeDeliveryPhotoLauncher.launch(secureUri)
+    }
+
+    // 3. The Security Guard
+    private fun isAutoTimeEnabled(): Boolean {
+        return try {
+            Settings.Global.getInt(contentResolver, Settings.Global.AUTO_TIME) == 1
+        } catch (e: Settings.SettingNotFoundException) {
+            true
+        }
+    }
+
+
 }

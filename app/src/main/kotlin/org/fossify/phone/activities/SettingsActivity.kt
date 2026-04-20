@@ -1,5 +1,6 @@
 package org.fossify.phone.activities
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -9,14 +10,11 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import org.fossify.commons.activities.ManageBlockedNumbersActivity
 import org.fossify.commons.dialogs.ChangeDateTimeFormatDialog
-import org.fossify.commons.dialogs.FeatureLockedDialog
 import org.fossify.commons.dialogs.RadioGroupDialog
-import org.fossify.commons.extensions.addLockedLabelIfNeeded
 import org.fossify.commons.extensions.baseConfig
 import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.commons.extensions.getFontSizeText
 import org.fossify.commons.extensions.getProperPrimaryColor
-import org.fossify.commons.extensions.isOrWasThankYouInstalled
 import org.fossify.commons.extensions.showErrorToast
 import org.fossify.commons.extensions.toast
 import org.fossify.commons.extensions.updateTextColors
@@ -30,7 +28,6 @@ import org.fossify.commons.helpers.TAB_CALL_HISTORY
 import org.fossify.commons.helpers.TAB_CONTACTS
 import org.fossify.commons.helpers.TAB_FAVORITES
 import org.fossify.commons.helpers.TAB_LAST_USED
-import org.fossify.commons.helpers.isNougatPlus
 import org.fossify.commons.helpers.isQPlus
 import org.fossify.commons.helpers.isTiramisuPlus
 import org.fossify.commons.models.RadioItem
@@ -92,7 +89,6 @@ class SettingsActivity : SimpleActivity() {
         super.onResume()
         setupTopAppBar(binding.settingsAppbar, NavigationIcon.Arrow)
 
-        setupCustomizeColors()
         setupUseEnglish()
         setupLanguage()
         setupManageBlockedNumbers()
@@ -114,11 +110,14 @@ class SettingsActivity : SimpleActivity() {
         setupAlwaysShowFullscreen()
         setupCallsExport()
         setupCallsImport()
+        setupCopyNumber()
+        setupAfterCallPopup()
+        setupOpenWhatsappOnCall()
+        setupWhatsappTypeSetting()
         updateTextColors(binding.settingsHolder)
 
         binding.apply {
             arrayOf(
-                settingsColorCustomizationSectionLabel,
                 settingsGeneralSettingsLabel,
                 settingsStartupLabel,
                 settingsCallsLabel,
@@ -151,13 +150,93 @@ class SettingsActivity : SimpleActivity() {
         }
     }
 
-    private fun setupCustomizeColors() {
-        binding.settingsColorCustomizationHolder.setOnClickListener {
-            startCustomizationActivity()
+    // @################### MY Edits
+
+    private  fun setupCopyNumber() {
+        binding.apply {
+            copyNumber.isChecked = config.copyNumberOnCall
+            copyNumberHolder.setOnClickListener {
+                copyNumber.toggle()
+                config.copyNumberOnCall = copyNumber.isChecked
+            }
+        }
+
+    }
+    private fun setupAfterCallPopup() {
+        binding.apply {
+            afterCallPopup.isChecked = config.showAfterCallPopup
+            afterCallPopupHolder.setOnClickListener {
+                afterCallPopup.toggle()
+                config.showAfterCallPopup = afterCallPopup.isChecked
+            }
+
+        }
+    }
+    private fun setupOpenWhatsappOnCall() {
+        binding.apply {
+            val state = config.openWhatsapp
+            openWhatsappOnCall.isChecked = state
+
+            if(state) {
+                whatsappMessageContainer.visibility = android.view.View.VISIBLE
+
+            }
+            openWhatsappHolder.setOnClickListener {
+                openWhatsappOnCall.toggle()
+                config.openWhatsapp = openWhatsappOnCall.isChecked
+                if(openWhatsappOnCall.isChecked) {
+                    whatsappMessageContainer.visibility = android.view.View.VISIBLE
+
+                }else {
+                    whatsappMessageContainer.visibility = android.view.View.GONE
+
+                }
+            }
+            whatsappMessageInput.setText(config.whatsappMessage)
+
+            hintButton.setOnClickListener {
+                AlertDialog.Builder(this@SettingsActivity)
+                    .setTitle("How To Make this Dynamic")
+                    .setMessage("You Can use ${config.dynamicSign} sign in your message and it will be replaced by a number you enter in a popup when the call ends. \n \n if no ${config.dynamicSign} sign found in the message the popup will not appear")
+                    .setPositiveButton(R.string.ok, null)
+                    .show()
+            }
+            saveWhatsappMessageBtn.setOnClickListener {
+                val message = whatsappMessageInput.text.toString()
+
+                if(message.contains(config.dynamicSign)){
+                    config.isDynamic = true
+                }else config.isDynamic = false
+
+                config.whatsappMessage = message
+
+                toast(R.string.save)
+            }
+
+        }
+    }
+    private fun setupWhatsappTypeSetting() {
+        binding.apply {
+            when(config.whatsappType) {
+                "normal_wp" -> whatsappTypeRadioGroup.check(R.id.normal_wp)
+                "business_wp" -> whatsappTypeRadioGroup.check(R.id.business_wp)
+            }
+
+
+            whatsappTypeRadioGroup.setOnCheckedChangeListener { _, checkedId ->
+                when(checkedId) {
+                    R.id.normal_wp -> {
+                        config.whatsappType = "normal_wp"
+                    }
+                    R.id.business_wp -> {
+                        config.whatsappType = "business_wp"
+                    }
+                }
+            }
         }
     }
 
-    private fun setupUseEnglish() {
+        private fun setupUseEnglish() {
         binding.apply {
             settingsUseEnglishHolder.beVisibleIf((config.wasUseEnglishToggled || Locale.getDefault().language != "en") && !isTiramisuPlus())
             settingsUseEnglish.isChecked = config.useEnglish
@@ -168,6 +247,7 @@ class SettingsActivity : SimpleActivity() {
             }
         }
     }
+
 
     private fun setupLanguage() {
         binding.apply {
@@ -181,16 +261,11 @@ class SettingsActivity : SimpleActivity() {
 
     private fun setupManageBlockedNumbers() {
         binding.apply {
-            settingsManageBlockedNumbersLabel.text = addLockedLabelIfNeeded(R.string.manage_blocked_numbers)
-            settingsManageBlockedNumbersHolder.beVisibleIf(isNougatPlus())
+            settingsManageBlockedNumbersHolder.beVisibleIf(true)
             settingsManageBlockedNumbersHolder.setOnClickListener {
-                if (isOrWasThankYouInstalled()) {
                     Intent(this@SettingsActivity, ManageBlockedNumbersActivity::class.java).apply {
                         startActivity(this)
                     }
-                } else {
-                    FeatureLockedDialog(this@SettingsActivity) { }
-                }
             }
         }
     }

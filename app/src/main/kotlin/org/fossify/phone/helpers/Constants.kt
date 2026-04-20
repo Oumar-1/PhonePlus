@@ -29,3 +29,14 @@ const val ACCEPT_CALL = PATH + "ACCEPT_CALL"
 const val DECLINE_CALL = PATH + "DECLINE_CALL"
 
 const val DIALPAD_TONE_LENGTH_MS = 150L // The length of DTMF tones in milliseconds
+const val COPY_NUMBER_ON_CALL= "copy_number_on_call"
+const val OPENWHATSAPP = "Open Whatsapp"
+const val AFTER_CALL_POPUP = "after_call_popup"
+const val DYNAMIC_SIGN = "dynamic_sign"
+const val WHATSAPP_MESSAGE = "whatsapp_message"
+const val ISDYNAMIC = "isdynamic"
+
+const val WHATSAPP_TYPE= "whatsapp_type"
+
+
+const val MAX_IMAGES_PER_CONTACT = 10

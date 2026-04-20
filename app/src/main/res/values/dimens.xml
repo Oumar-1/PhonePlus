@@ -18,4 +18,8 @@
     <!-- keep these 2 values in dp to avoid scaling -->
     <dimen name="dialpad_text_size">28dp</dimen>
     <dimen name="dialpad_letters_text_size">12dp</dimen>
+
+<!--   after call popup  -->
+    <dimen name="after_call_popup_btn_text_size">12sp</dimen>
+    <dimen name="after_call_popup_btn_size">55dp</dimen>
 </resources>

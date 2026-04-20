@@ -4,6 +4,8 @@
         android:id="@+id/cab_call"
         android:icon="@drawable/ic_phone_vector"
         android:title="@string/call" />
+    <item android:id="@+id/cab_notes"
+        android:title="@string/notes"/>
     <item
         android:id="@+id/cab_call_sim_1"
         android:icon="@drawable/ic_phone_one_vector"

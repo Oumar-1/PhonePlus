@@ -74,4 +74,32 @@
     <string name="app_launcher_name">الهاتف</string>
     <string name="faq_2_title">لماذا لا تعمل مكالمات الطوارئ؟</string>
     <string name="faq_2_text">بسبب قيود النظام، لا يمكن إجراء مكالمات الطوارئ إلا من خلال تطبيق الهاتف الإفتراضي للنظام، لضمان عمل مكالمات الطوارئ بشكل صحيح، تحتاج إلى إبقاء تطبيق النظام مثبتا و مفعلا.</string>
+
+
+    <!-- المزيد من الترجمات يمكن إضافتها هنا -->
+
+    <string name="call_actions">اختصارات الإتصال</string>
+    <string name="auto_copy_number">نسخ الرقم عند الإتصال</string>
+    <string name="open_whatsapp_on_call">فتح الواتساب عند الإتصال</string>
+    <string name="static_message">رجاء أضف رسالتك هنا</string>
+    <string name="show_after_call_popup">خيارات ما بعد المكالمة</string>
+    <string name="phone_number_copied">تم نسخ الرقم إلى الحافظة</string>
+    <string name="whatsapp_type">نوع الواتساب الذي تستخدمه</string>
+    <string name="whatsapp_normal">العادي</string>
+    <string name="whatsapp_business">الأعمال</string>
+
+    <string name="open_dynamic_whatsapp_on_call">قتح الواتساب بعد المكالمة</string>
+    <string name="dynamic_message">رجاء ضع رسالتك هنا و علامة @$ للرسائل الديناميكية</string>
+    <string name="enter_number">رجاء ادخل رقم</string>
+    <string name="after_call_options">خيارات ما بعد المكالمة</string>
+    <string name="whatsapp">واتساب</string>
+    <string name="close_popup">اغلق النافذة</string>
+    <string name="sms">رسائل نصية</string>
+    <string name="enter_a_note">ادخل ملاحظة</string>
+
+    <!-- photo taking feature -->
+    <string name="take_pod">إلتقط صورة</string>
+    <string name="view_pod_gallery">تصفح الصور الملتقظه</string>
+
+
 </resources>

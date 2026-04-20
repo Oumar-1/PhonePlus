@@ -35,11 +35,33 @@
         android:textDirection="firstStrongLtr"
         android:textSize="@dimen/bigger_text_size"
         app:layout_constraintBottom_toTopOf="@id/item_recents_date_time"
-        app:layout_constraintEnd_toStartOf="@+id/overflow_menu_icon"
+        app:layout_constraintEnd_toStartOf="@+id/item_recents_delivery_thumbnail"
         app:layout_constraintStart_toEndOf="@+id/item_recents_image"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_chainStyle="spread_inside"
         tools:text="John Doe" />
+
+    <TextView
+        android:id="@+id/item_recents_note"
+        android:textColor="@color/color_accent"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/small_margin"
+        android:layout_marginEnd="@dimen/small_margin"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textAlignment="viewStart"
+        android:textDirection="firstStrongLtr"
+        android:textSize="@dimen/medium_text_size"
+        android:alpha="0.7"
+        android:textStyle="italic"
+        android:visibility="visible"
+        app:layout_constraintBottom_toTopOf="@id/item_recents_date_time"
+        app:layout_constraintEnd_toStartOf="@+id/item_recents_delivery_thumbnail"
+        app:layout_constraintStart_toEndOf="@+id/item_recents_image"
+        app:layout_constraintTop_toBottomOf="@id/item_recents_name"
+        tools:text="Important client - call back ASAP"
+        tools:visibility="visible" />
 
     <ImageView
         android:id="@+id/item_recents_sim_image"
@@ -138,10 +160,37 @@
         android:maxLines="1"
         android:textSize="@dimen/normal_text_size"
         app:layout_constraintBottom_toBottomOf="@id/item_recents_date_time"
-        app:layout_constraintEnd_toStartOf="@+id/overflow_menu_icon"
+        app:layout_constraintEnd_toStartOf="@+id/item_recents_delivery_thumbnail"
         app:layout_constraintStart_toEndOf="@+id/item_recents_duration"
         app:layout_constraintTop_toTopOf="@id/item_recents_date_time"
         tools:text="Australia" />
+
+    <ImageView
+        android:id="@+id/item_recents_delivery_thumbnail"
+        android:layout_width="@dimen/normal_icon_size"
+        android:layout_height="@dimen/normal_icon_size"
+        android:layout_marginEnd="@dimen/small_margin"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:visibility="gone"
+        android:scaleType="centerCrop"
+        android:contentDescription="@string/view_pod_gallery"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/item_recents_camera"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="visible"
+        tools:src="@drawable/ic_person_vector" />
+
+    <ImageView
+        android:id="@+id/item_recents_camera"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="@dimen/normal_margin"
+        android:src="@drawable/ic_camera_vector"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/take_pod"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/overflow_menu_icon"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <ImageView
         android:id="@+id/overflow_menu_icon"

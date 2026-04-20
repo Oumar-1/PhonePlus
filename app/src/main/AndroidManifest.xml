@@ -13,6 +13,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -49,6 +50,11 @@
         <activity
             android:name=".activities.SplashActivity"
             android:exported="false"
+            android:theme="@style/SplashTheme" />
+        <activity
+            android:name=".activities.DynamicMessageTemplateActivity"
+            android:exported="false"
+            android:windowSoftInputMode="stateVisible"
             android:theme="@style/SplashTheme" />
 
         <activity
@@ -168,6 +174,20 @@
             </intent-filter>
         </activity>
 
+        <service android:name=".services.FloatingButtonService" />
+        <service android:name=".services.AfterCallPopupService"
+
+
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            tools:targetApi="o"
+            tools:ignore="ForegroundServicePermission">
+
+        <property
+            android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+            android:value="afterCallOverlay" />
+        </service>
         <service
             android:name=".services.CallService"
             android:enabled="true"
@@ -460,5 +480,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
+<!--        Delivery images provider  -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
     </application>
 </manifest>

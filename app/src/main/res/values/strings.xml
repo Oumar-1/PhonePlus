@@ -95,4 +95,29 @@
         Haven't found some strings? There's more at
         https://github.com/FossifyOrg/Commons/tree/master/commons/src/main/res
     -->
+    <!-- My Strings -->
+    <string name="call_actions">Call Actions</string>
+    <string name="auto_copy_number">Copy Number On Call</string>
+    <string name="open_whatsapp_on_call">Open Whatsapp On Call</string>
+    <string name="static_message">Please add your message here\n</string>
+    <string name="open_dynamic_whatsapp_on_call">Open Whatsapp With Dynamic Message (number)</string>
+    <string name="dynamic_message">Please add your message here and @$ sign to be replaced \n</string>
+    <string name="show_after_call_popup">After Call Popup\n</string>
+    <string name="enter_number">Please Enter a number</string>
+    <string name="after_call_options">After Call Options</string>
+    <string name="whatsapp">Whatsapp</string>
+    <string name="close_popup">Close Popup</string>
+    <string name="sms">SMS</string>
+    <string name="phone_number_copied">Phone number copied</string>
+    <string name="whatsapp_type">Whatsapp type</string>
+    <string name="whatsapp_normal">Normal</string>
+    <string name="whatsapp_business">Business</string>
+    <string name="enter_a_note">Enter a note</string>
+
+
+    <!-- photo taking feature -->
+    <string name="take_pod">Take Photo</string>
+    <string name="view_pod_gallery">View Photos Gallery</string>
+
+
 </resources>
