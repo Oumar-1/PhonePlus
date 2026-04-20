@@ -24,7 +24,7 @@ app-build-javaVersion = "VERSION_17"
 app-build-kotlinJVMTarget = "17"
 
 #### user specific properties
-room = "2.8.3"
+room = "2.8.4"
 kotlinxCoroutines = "1.10.2"
 metrialUi="1.13.0"
 #### user specific properties ends here
