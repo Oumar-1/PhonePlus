@@ -11,5 +11,6 @@ data class CallerPhotoEntity(
     val phoneNumber: String,
     val imagePath: String,           // The local path to the compressed WebP file
     val description: String = "",    // Optional description
+    val isFavorite: Boolean = false, // If true, this photo won't be auto-deleted
     val createdAt: Long = System.currentTimeMillis()
 )

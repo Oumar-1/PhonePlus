@@ -45,12 +45,20 @@ object DeliveryPhotoHelper {
             )
 
             // 5. FIFO Auto-Cleanup: Keep the DB lean!
+            // We keep all favorites, and the most recent non-favorites, up to MAX_DELIVERY_PHOTOS total.
             val allPhotos = dao.getPhotosForNumber(normalizedNumber)
             if (allPhotos.size > MAX_DELIVERY_PHOTOS) {
-                val photosToDelete = allPhotos.drop(MAX_DELIVERY_PHOTOS)
-                photosToDelete.forEach { oldPhoto ->
-                    File(oldPhoto.imagePath).delete()
-                    dao.deletePhoto(oldPhoto)
+                val nonFavorites = allPhotos.filter { !it.isFavorite }.sortedByDescending { it.createdAt }
+                val favoritesCount = allPhotos.size - nonFavorites.size
+                
+                // We want to keep at most (MAX_DELIVERY_PHOTOS - favoritesCount) non-favorites
+                val nonFavoritesToKeep = MAX_DELIVERY_PHOTOS - favoritesCount
+                if (nonFavoritesToKeep >= 0) {
+                    val photosToDelete = nonFavorites.drop(nonFavoritesToKeep)
+                    photosToDelete.forEach { oldPhoto ->
+                        File(oldPhoto.imagePath).delete()
+                        dao.deletePhoto(oldPhoto)
+                    }
                 }
             }
 
@@ -64,5 +72,20 @@ object DeliveryPhotoHelper {
 
             return@withContext null
         }
+    }
+
+    suspend fun toggleFavorite(context: Context, photo: CallerPhotoEntity): Boolean = withContext(Dispatchers.IO) {
+        val normalizedNumber = context.config.normalizeCustomSIMNumber(photo.phoneNumber)
+        val dao = DatabaseProvider.get(context).callerRecordDao()
+        if (!photo.isFavorite) {
+            val allPhotos = dao.getPhotosForNumber(normalizedNumber)
+            val favoritesCount = allPhotos.count { it.isFavorite }
+            if (favoritesCount >= 3) {
+                return@withContext false // Limit reached
+            }
+        }
+
+        dao.updatePhoto(photo.copy(isFavorite = !photo.isFavorite))
+        return@withContext true
     }
 }

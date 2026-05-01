@@ -9,7 +9,10 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.Update
 import androidx.room.Upsert
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 import org.fossify.phone.extensions.config
 
@@ -51,11 +54,16 @@ interface MyRecordDao {
     suspend fun insertPhoto(photo: CallerPhotoEntity)
 
     // Gets all photos for a specific number, newest first
-    @Query("SELECT * FROM caller_photos WHERE phoneNumber = :phone ORDER BY createdAt DESC")
+    @Query("SELECT * FROM caller_photos WHERE phoneNumber = :phone ORDER BY isFavorite DESC, createdAt DESC")
     suspend fun getPhotosForNumber(phone: String): List<CallerPhotoEntity>
+
     // Fetches all photos for the visible numbers on screen, ordered newest to oldest
-    @androidx.room.Query("SELECT * FROM caller_photos WHERE phoneNumber IN (:numbers) ORDER BY createdAt DESC")
+    @androidx.room.Query("SELECT * FROM caller_photos WHERE phoneNumber IN (:numbers) ORDER BY isFavorite DESC, createdAt DESC")
     suspend fun getPhotosForNumbersSync(numbers: List<String>): List<CallerPhotoEntity>
+
+    @Update
+    suspend fun updatePhoto(photo: CallerPhotoEntity)
+
     // --- Phase 8: Deletion ---
     @androidx.room.Delete
     suspend fun deletePhoto(photo: org.fossify.phone.data.CallerPhotoEntity)
@@ -64,7 +72,7 @@ interface MyRecordDao {
 
 @Database(
     entities = [MyRecordEntity::class, CallerPhotoEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class MyRecordDatabase : RoomDatabase() {
@@ -72,6 +80,12 @@ abstract class MyRecordDatabase : RoomDatabase() {
 
     companion object {
         const val DB_NAME = "caller_records.db"
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE caller_photos ADD COLUMN isFavorite INTEGER NOT NULL DEFAULT 0")
+            }
+        }
     }
 }
 
@@ -85,7 +99,8 @@ object DatabaseProvider {
                 context.applicationContext,
                 MyRecordDatabase::class.java,
                 MyRecordDatabase.DB_NAME
-            ).build().also { instance = it }
+            ).addMigrations(MyRecordDatabase.MIGRATION_2_3)
+                .build().also { instance = it }
         }
 }
 
