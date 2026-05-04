@@ -7,12 +7,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.bumptech.glide.load.resource.bitmap.RoundedCorners
-import com.bumptech.glide.request.RequestOptions
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.fossify.phone.R
 import org.fossify.phone.data.CallerPhotoEntity
 import org.fossify.phone.helpers.DeliveryPhotoHelper
@@ -25,7 +20,7 @@ class DeliveryPhotosAdapter(
     private val onDeleteClick: (CallerPhotoEntity, Int) -> Unit
 ) : RecyclerView.Adapter<DeliveryPhotosAdapter.PhotoViewHolder>() {
 
-    inner class PhotoViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+    class PhotoViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val imageView: ImageView = view.findViewById(R.id.delivery_photo_image)
         val dateText: TextView = view.findViewById(R.id.delivery_photo_date)
         val deleteText: TextView = view.findViewById(R.id.delivery_photo_delete)
@@ -38,6 +33,11 @@ class DeliveryPhotosAdapter(
     }
 
     override fun getItemCount() = photos.size
+    override fun onViewRecycled(holder: PhotoViewHolder) {
+        super.onViewRecycled(holder)
+        holder.imageView.setImageDrawable(null)
+
+    }
 
     override fun onBindViewHolder(holder: PhotoViewHolder, position: Int) {
         val photo = photos[position]
@@ -55,7 +55,8 @@ class DeliveryPhotosAdapter(
 
         // Click Listeners
         holder.imageView.setOnClickListener { onImageClick(photo.imagePath) }
-        holder.deleteText.setOnClickListener { onDeleteClick(photo, holder.adapterPosition) }
+        holder.deleteText.setOnClickListener { onDeleteClick(photo, holder.bindingAdapterPosition) }
+
 
         holder.favoriteIcon.setOnClickListener {
             val context = holder.itemView.context
@@ -65,7 +66,7 @@ class DeliveryPhotosAdapter(
                 val success = DeliveryPhotoHelper.toggleFavorite(context, photo)
                 if (success) {
                     val updatedPhoto = photo.copy(isFavorite = !photo.isFavorite)
-                    photos[holder.adapterPosition] = updatedPhoto
+                    photos[holder.bindingAdapterPosition] = updatedPhoto
 
                     // Re-sort the list so favorites stay at the top
                     photos.sortWith(compareByDescending<CallerPhotoEntity> { it.isFavorite }.thenByDescending { it.createdAt })
